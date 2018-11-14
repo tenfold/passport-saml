@@ -4,6 +4,9 @@ Passport-SAML
 
 [![NPM](https://nodei.co/npm/passport-saml.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/passport-saml/)
 
+**Important**:
+This is a temporary fork from the [original passport-saml](https://github.com/bergie/passport-saml). Once the commits that add support for `MultiSamlStrategy` and `generateServiceProviderMetadata( decryptionCert, signingCert )` with the two arguments signature are released to NPM, we can get rid of this repo and adjust `tenfold-node-server` dependencies to fetch this library from there instead. As of now, the version available in NPM for `passport-saml` is a few versions behind their master branch.
+
 This is a [SAML 2.0](http://en.wikipedia.org/wiki/SAML_2.0) authentication provider for [Passport](http://passportjs.org/), the Node.js authentication library.
 
 The code was originally based on Michael Bosworth's [express-saml](https://github.com/bozzltron/express-saml) library.

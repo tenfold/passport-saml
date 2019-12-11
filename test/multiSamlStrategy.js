@@ -32,12 +32,18 @@ describe('strategy#authenticate', function() {
   it('calls super with request and auth options', function(done) {
     var superAuthenticateStub = this.superAuthenticateStub;
     function getSamlOptions (req, fn) {
-      fn();
-      sinon.assert.calledOnce(superAuthenticateStub);
-      done();
+      try {
+        fn();
+        sinon.assert.calledOnce(superAuthenticateStub);
+        done();
+      } catch (err2) {
+        done(err2);
+      }
     };
 
-    var strategy = new MultiSamlStrategy({ getSamlOptions: getSamlOptions }, verify);
+    var strategy = new MultiSamlStrategy({
+      getSamlOptions: getSamlOptions
+    }, verify);
     strategy.authenticate();
   });
 
@@ -46,10 +52,14 @@ describe('strategy#authenticate', function() {
       passReqToCallback: true,
       authnRequestBinding: 'HTTP-POST',
       getSamlOptions: function (req, fn) {
-        fn();
-        strategy._passReqToCallback.should.eql(true);
-        strategy._authnRequestBinding.should.eql('HTTP-POST');
-        done();
+        try {
+          fn();
+          strategy._passReqToCallback.should.eql(true);
+          strategy._authnRequestBinding.should.eql('HTTP-POST');
+          done();
+        } catch (err2) {
+          done(err2);
+        }
       }
     };
 
@@ -57,7 +67,7 @@ describe('strategy#authenticate', function() {
     strategy.authenticate();
   });
 
-  it('uses geted options to setup internal saml provider', function(done) {
+  it('uses given options to setup internal saml provider', function(done) {
     var samlOptions = {
       issuer: 'http://foo.issuer',
       callbackUrl: 'http://foo.callback',
@@ -72,13 +82,20 @@ describe('strategy#authenticate', function() {
     };
 
     function getSamlOptions (req, fn) {
-      fn(null, samlOptions);
-      strategy._saml.options.should.containEql(samlOptions);
-      done();
+      try {
+        fn(null, samlOptions);
+        strategy._saml.options.should.containEql(Object.assign({},
+          { cacheProvider: 'mock cache provider' },
+          samlOptions
+        ));
+        done();
+      } catch (err2) {
+        done(err2);
+      }
     }
 
     var strategy = new MultiSamlStrategy(
-      { getSamlOptions: getSamlOptions },
+      { getSamlOptions: getSamlOptions, cacheProvider: 'mock cache provider'},
       verify
     );
     strategy.authenticate();
@@ -97,9 +114,13 @@ describe('strategy#logout', function() {
   it('calls super with request and auth options', function(done) {
     var superAuthenticateStub = this.superAuthenticateStub;
     function getSamlOptions (req, fn) {
-      fn();
-      sinon.assert.calledOnce(superAuthenticateStub);
-      done();
+      try {
+        fn();
+        sinon.assert.calledOnce(superAuthenticateStub);
+        done();
+      } catch (err2) {
+        done(err2);
+      }
     };
 
     var strategy = new MultiSamlStrategy({ getSamlOptions: getSamlOptions }, verify);
@@ -111,10 +132,14 @@ describe('strategy#logout', function() {
       passReqToCallback: true,
       authnRequestBinding: 'HTTP-POST',
       getSamlOptions: function (req, fn) {
-        fn();
-        strategy._passReqToCallback.should.eql(true);
-        strategy._authnRequestBinding.should.eql('HTTP-POST');
-        done();
+        try {
+          fn();
+          strategy._passReqToCallback.should.eql(true);
+          strategy._authnRequestBinding.should.eql('HTTP-POST');
+          done();
+        } catch (err2) {
+          done(err2);
+        }
       }
     };
 
@@ -122,7 +147,7 @@ describe('strategy#logout', function() {
     strategy.logout();
   });
 
-  it('uses geted options to setup internal saml provider', function(done) {
+  it('uses given options to setup internal saml provider', function(done) {
     var samlOptions = {
       issuer: 'http://foo.issuer',
       callbackUrl: 'http://foo.callback',
@@ -137,9 +162,13 @@ describe('strategy#logout', function() {
     };
 
     function getSamlOptions (req, fn) {
-      fn(null, samlOptions);
-      strategy._saml.options.should.containEql(samlOptions);
-      done();
+      try {
+        fn(null, samlOptions);
+        strategy._saml.options.should.containEql(samlOptions);
+        done();
+      } catch (err2) {
+        done(err2);
+      }
     }
 
     var strategy = new MultiSamlStrategy(
@@ -147,5 +176,90 @@ describe('strategy#logout', function() {
       verify
     );
     strategy.logout();
+  });
+});
+
+describe('strategy#generateServiceProviderMetadata', function() {
+  beforeEach(function() {
+    this.superGenerateServiceProviderMetadata = sinon.stub(SamlStrategy.prototype, 'generateServiceProviderMetadata').returns('My Metadata Result');
+  });
+
+  afterEach(function() {
+    this.superGenerateServiceProviderMetadata.restore();
+  });
+
+  it('calls super with request and generateServiceProviderMetadata options', function(done) {
+    var superGenerateServiceProviderMetadata = this.superGenerateServiceProviderMetadata;
+    function getSamlOptions (req, fn) {
+      try {
+        fn();
+        sinon.assert.calledOnce(superGenerateServiceProviderMetadata);
+        superGenerateServiceProviderMetadata.calledWith('bar', 'baz');
+        req.should.eql('foo');
+        done();
+      } catch (err2) {
+        done(err2);
+      }
+    };
+
+
+    var strategy = new MultiSamlStrategy({ getSamlOptions: getSamlOptions }, verify);
+    strategy.generateServiceProviderMetadata('foo', 'bar', 'baz', function () {});
+  });
+
+  it('passes options on to saml strategy', function(done) {
+    var passportOptions = {
+      passReqToCallback: true,
+      authnRequestBinding: 'HTTP-POST',
+      getSamlOptions: function (req, fn) {
+        try {
+          fn();
+          strategy._passReqToCallback.should.eql(true);
+          strategy._authnRequestBinding.should.eql('HTTP-POST');
+          done();
+        } catch (err2) {
+          done(err2);
+        }
+      }
+    };
+
+    var strategy = new MultiSamlStrategy(passportOptions, verify);
+    strategy.generateServiceProviderMetadata('foo', 'bar', 'baz', function () {});
+  });
+
+  it('should pass error to callback function', function(done) {
+    var passportOptions = {
+      getSamlOptions: function (req, fn) {
+        fn('My error');
+      }
+    };
+
+    var strategy = new MultiSamlStrategy(passportOptions, verify);
+    strategy.generateServiceProviderMetadata('foo', 'bar', 'baz', function (error, result) {
+      try {
+        should(error).equal('My error');
+        done();
+      } catch (err2) {
+        done(err2);
+      }
+    });
+  });
+
+  it('should pass result to callback function', function(done) {
+    var passportOptions = {
+      getSamlOptions: function (req, fn) {
+        fn();
+      }
+    };
+
+    var strategy = new MultiSamlStrategy(passportOptions, verify);
+    strategy.generateServiceProviderMetadata('foo', 'bar', 'baz', function (error, result) {
+      try {
+        should(result).equal('My Metadata Result');
+        done();
+      } catch (err2) {
+        done(err2);
+      }
+    });
   });
 });

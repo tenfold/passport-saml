@@ -75,6 +75,11 @@ passport.use(new MultiSamlStrategy(
   })
 );
 ```
+The options passed when the `MultiSamlStrategy` is initialized are also passed as default values to each provider.
+e.g. If you provide an `issuer` on `MultiSamlStrategy`, this will be also a default value for every provider.
+You can override these defaults by passing a new value through the `getSamlOptions` function.
+
+Using multiple providers supports `validateInResponseTo`, but all the `InResponse` values are stored on the same Cache. This means, if you're using the default `InMemoryCache`, that all providers have access to it and a provider might get its response validated against another's request. [Issue Report](!https://github.com/bergie/passport-saml/issues/334). To amend this you should provide a different cache provider per SAML provider, through the `getSamlOptions` function.
 
 #### The profile object:
 
@@ -92,9 +97,10 @@ type Profile = {
   email?: string;  // `mail` if not present in the assertion
   getAssertionXml(): string;  // get the raw assertion XML
   getAssertion(): object;  // get the assertion XML parsed as a JavaScript object
+  getSamlResponseXml(): string; // get the raw SAML response XML
   ID?: string;
 } & {
-  [attributeName: string]: string;  // arbitrary `AttributeValue`s
+  [attributeName: string]: unknown;  // arbitrary `AttributeValue`s
 }
 ```
 
@@ -120,10 +126,13 @@ type Profile = {
   * `attributeConsumingServiceIndex`: optional `AttributeConsumingServiceIndex` attribute to add to AuthnRequest to instruct the IDP which attribute set to attach to the response ([link](http://blog.aniljohn.com/2014/01/data-minimization-front-channel-saml-attribute-requests.html))
   * `disableRequestedAuthnContext`: if truthy, do not request a specific authentication context. This is [known to help when authenticating against Active Directory](https://github.com/bergie/passport-saml/issues/226) (AD FS) servers.
   * `authnContext`: if truthy, name identifier format to request auth context (default: `urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport`); array of values is also supported
+  *  RACComparison: Requested Authentication Context comparison type. Possible values are 'exact','minimum','maximum','better'. Default is 'exact'.
+
   * `forceAuthn`: if set to true, the initial SAML request from the service provider specifies that the IdP should force re-authentication of the user, even if they possess a valid session.
   * `providerName`: optional human-readable name of the requester for use by the presenter's user agent or the identity provider
   * `skipRequestCompression`: if set to true, the SAML request from the service provider won't be compressed.
   * `authnRequestBinding`: if set to `HTTP-POST`, will request authentication from IDP via HTTP POST binding, otherwise defaults to HTTP Redirect
+  * `disableRequestACSUrl`: if truthy, SAML AuthnRequest from the service provider will not include the optional AssertionConsumerServiceURL. Default is falsy so it is automatically included.
  * **InResponseTo Validation**
   * `validateInResponseTo`: if truthy, then InResponseTo will be validated from incoming SAML responses
   * `requestIdExpirationPeriodMs`: Defines the expiration time when a Request ID generated for a SAML request will not be valid if seen in a SAML response in the `InResponseTo` field.  Default is 8 hours.
@@ -145,8 +154,13 @@ type Profile = {
 
 You need to provide a route corresponding to the `path` configuration parameter given to the strategy:
 
+The authentication callback must be invoked after the `body-parser` middlerware.
+
 ```javascript
+const bodyParser = require('body-parser');
+
 app.post('/login/callback',
+  bodyParser.urlencoded({ extended: false }),
   passport.authenticate('saml', { failureRedirect: '/', failureFlash: true }),
   function(req, res) {
     res.redirect('/');
@@ -186,6 +200,8 @@ As a convenience, the strategy object exposes a `generateServiceProviderMetadata
 The `decryptionCert` argument should be a public certificate matching the `decryptionPvk` and is required if the strategy is configured with a `decryptionPvk`.
 
 The `signingCert` argument should be a public certificate matching the `privateCert` and is required if the strategy is configured with a `privateCert`.
+
+The `generateServiceProviderMetadata` method is also available on the `MultiSamlStrategy`, but needs an extra request and a callback argument (`generateServiceProviderMetadata( req, decryptionCert, signingCert, next )`), which are passed to the `getSamlOptions` to retrieve the correct configuration.
 
 
 ## Security and signatures
@@ -319,3 +335,15 @@ See [Releases](https://github.com/bergie/passport-saml/releases) to find the cha
 ### Is there an example I can look at?
 
 Gerard Braad has provided an example app at https://github.com/gbraad/passport-saml-example/
+
+## Node Support Policy
+
+We only support [Long-Term Support](https://github.com/nodejs/Release) versions of Node.
+
+We specifically limit our support to LTS versions of Node, not because this package won't work on other versions, but because we have a limited amount of time, and supporting LTS offers the greatest return on that investment.
+
+It's possible this package will work correctly on newer versions of Node. It may even be possible to use this package on older versions of Node, though that's more unlikely as we'll make every effort to take advantage of features available in the oldest LTS version we support.
+
+As each Node LTS version reaches its end-of-life we will remove that version from the `node` `engines` property of our package's `package.json` file. Removing a Node version is considered a breaking change and will entail the publishing of a new major version of this package. We will not accept any requests to support an end-of-life version of Node. Any merge requests or issues supporting an end-of-life version of Node will be closed.
+
+We will accept code that allows this package to run on newer, non-LTS, versions of Node.
